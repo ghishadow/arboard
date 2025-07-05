@@ -15,20 +15,12 @@ use std::{convert::TryInto, mem::size_of};
 use clipboard_win::Clipboard as SystemClipboard;
 
 #[cfg(feature = "image-data")]
-use winapi::{
-	shared::minwindef::DWORD,
-	um::{
-		errhandlingapi::GetLastError,
-		winbase::{GlobalLock, GlobalUnlock},
-		wingdi::{
-			CreateDIBitmap, DeleteObject, GetDIBits, LCS_sRGB, BITMAPINFO, BITMAPINFOHEADER,
-			BITMAPV5HEADER, BI_RGB, CBM_INIT, DIB_RGB_COLORS, LCS_GM_IMAGES, PROFILE_EMBEDDED,
-			PROFILE_LINKED, RGBQUAD,
-		},
-		winnt::LONG,
-		winuser::{GetDC, SetClipboardData},
-	},
-};
+use windows_sys::Win32::Graphics::Gdi::{CreateDIBitmap,	DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER,
+	BITMAPV5HEADER, BI_RGB, CBM_INIT, DIB_RGB_COLORS, LCS_GM_IMAGES,
+RGBQUAD, GetDC};
+use windows_sys::Win32::Foundation::GetLastError;
+use windows_sys::Win32::System::DataExchange::SetClipboardData;
+use windows_sys::Win32::System::Memory::{ GlobalLock, GlobalUnlock};
 
 use crate::common::{private, Error};
 
@@ -36,15 +28,18 @@ use crate::common::{private, Error};
 use crate::common::{ImageData, ScopeGuard};
 
 const MAX_OPEN_ATTEMPTS: usize = 5;
+pub const PROFILE_LINKED: LONG = 0x4C49_4E4B;
+pub const PROFILE_EMBEDDED: LONG = 0x4D42_4544;
+pub const LCS_sRGB: LONG = 0x7352_4742;
+type DWORD = u32;
+type LONG = i32;
 
 #[cfg(feature = "image-data")]
 fn add_cf_dibv5(image: ImageData) -> Result<(), Error> {
 	use std::intrinsics::copy_nonoverlapping;
-	use winapi::um::{
-		winbase::{GlobalAlloc, GHND},
-		wingdi::BI_BITFIELDS,
-		winuser::CF_DIBV5,
-	};
+	use windows_sys::Win32::System::Memory::{GlobalAlloc, GHND};
+	use windows_sys::Win32::Graphics::Gdi::BI_BITFIELDS;
+	use windows_sys::Win32::System::SystemServices::CF_DIBV5;
 
 	let header_size = std::mem::size_of::<BITMAPV5HEADER>();
 	let header = BITMAPV5HEADER {
